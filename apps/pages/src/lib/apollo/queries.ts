@@ -268,3 +268,55 @@ export const CANCEL_SUBSCRIPTION = gql`
     cancelSubscription(subscriptionId: $subscriptionId)
   }
 `;
+
+// AI / ADIS
+export const AI_CHAT = gql`
+  mutation AiChat($input: ChatInput!) {
+    aiChat(input: $input)
+  }
+`;
+
+export const AI_GENERATE_BUSINESS_DESCRIPTION = gql`
+  mutation AiGenerateBusinessDescription($input: GenerateDescriptionInput!) {
+    aiGenerateBusinessDescription(input: $input)
+  }
+`;
+
+export const AI_GENERATE_LISTING_DESCRIPTION = gql`
+  mutation AiGenerateListingDescription($input: GenerateListingDescriptionInput!) {
+    aiGenerateListingDescription(input: $input)
+  }
+`;
+
+export const AI_ADD_KNOWLEDGE_BASE = gql`
+  mutation AiAddKnowledgeBase($input: AddKnowledgeBaseInput!) {
+    aiAddKnowledgeBase(input: $input)
+  }
+`;
+
+export const AI_SEARCH_KNOWLEDGE_BASE = gql`
+  query AiSearchKnowledgeBase($input: SearchKnowledgeBaseInput!) {
+    aiSearchKnowledgeBase(input: $input) {
+      id
+      question
+      answer
+      score
+    }
+  }
+`;
+
+export const AI_AUTO_GENERATE_KNOWLEDGE_BASE = gql`
+  mutation AiAutoGenerateKnowledgeBase($input: AutoGenerateKBInput!) {
+    aiAutoGenerateKnowledgeBase(input: $input)
+  }
+`;
+
+export const AI_SUGGEST_KNOWLEDGE_BASE = gql`
+  mutation AiSuggestKnowledgeBase($input: SuggestKBInput!) {
+    aiSuggestKnowledgeBase(input: $input) {
+      question
+      answer
+      category
+    }
+  }
+`;
