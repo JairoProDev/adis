@@ -12,6 +12,8 @@ import { BusinessModule } from './modules/business/business.module';
 import { ListingsModule } from './modules/listings/listings.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
+import { EmailModule } from './modules/email/email.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 // Services
 import { PrismaService } from './common/services/prisma.service';
@@ -56,6 +58,8 @@ import { PrismaService } from './common/services/prisma.service';
     ListingsModule,
     CategoriesModule,
     UploadsModule,
+    EmailModule,
+    PaymentsModule,
   ],
   providers: [PrismaService],
   exports: [PrismaService],
