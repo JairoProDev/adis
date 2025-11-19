@@ -1,7 +1,7 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { BusinessService } from './business.service';
-import { CreateBusinessInput, UpdateBusinessInput } from './dto/business.input';
+import { CreateBusinessInput, UpdateBusinessInput, UpdatePageConfigInput } from './dto/business.input';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 
@@ -49,5 +49,19 @@ export class BusinessResolver {
     @Args('id', { type: () => ID }) id: string,
   ) {
     return this.businessService.delete(user.id, id);
+  }
+
+  @Mutation('updatePageConfig')
+  @UseGuards(JwtAuthGuard)
+  async updatePageConfig(
+    @CurrentUser() user: any,
+    @Args('input') input: UpdatePageConfigInput,
+  ) {
+    return this.businessService.updatePageConfig(user.id, input.businessId, input.theme);
+  }
+
+  @Query('pageConfig')
+  async getPageConfig(@Args('businessId', { type: () => ID }) businessId: string) {
+    return this.businessService.getPageConfig(businessId);
   }
 }

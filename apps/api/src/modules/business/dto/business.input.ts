@@ -95,3 +95,13 @@ export class UpdateBusinessInput {
   @IsOptional()
   coverImage?: string;
 }
+
+@InputType()
+export class UpdatePageConfigInput {
+  @Field()
+  @IsString()
+  businessId: string;
+
+  @Field()
+  theme: any; // JSON field for page configuration
+}

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '@/common/services/prisma.service';
 import { generateSlug } from '@publicadis/database';
-import { CreateBusinessInput, UpdateBusinessInput } from './dto/business.input';
+import { CreateBusinessInput, UpdateBusinessInput, UpdatePageConfigInput } from './dto/business.input';
 
 @Injectable()
 export class BusinessService {
@@ -118,5 +118,52 @@ export class BusinessService {
     });
 
     return { success: true };
+  }
+
+  /**
+   * Update page configuration (theme JSON)
+   */
+  async updatePageConfig(userId: string, businessId: string, theme: any) {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+    });
+
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+
+    if (business.ownerId !== userId) {
+      throw new ForbiddenException('Not authorized');
+    }
+
+    return this.prisma.business.update({
+      where: { id: businessId },
+      data: { theme },
+      select: {
+        id: true,
+        slug: true,
+        theme: true,
+      },
+    });
+  }
+
+  /**
+   * Get page configuration
+   */
+  async getPageConfig(businessId: string) {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: {
+        id: true,
+        slug: true,
+        theme: true,
+      },
+    });
+
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+
+    return business;
   }
 }

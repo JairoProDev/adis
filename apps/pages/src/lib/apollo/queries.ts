@@ -320,3 +320,24 @@ export const AI_SUGGEST_KNOWLEDGE_BASE = gql`
     }
   }
 `;
+
+// Page Builder
+export const UPDATE_PAGE_CONFIG = gql`
+  mutation UpdatePageConfig($input: UpdatePageConfigInput!) {
+    updatePageConfig(input: $input) {
+      id
+      slug
+      theme
+    }
+  }
+`;
+
+export const GET_PAGE_CONFIG = gql`
+  query PageConfig($businessId: ID!) {
+    pageConfig(businessId: $businessId) {
+      id
+      slug
+      theme
+    }
+  }
+`;
