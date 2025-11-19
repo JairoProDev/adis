@@ -1,0 +1,28 @@
+{
+  "name": "@publicadis/database",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prisma database schema and client for Publicadis ecosystem",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:prod": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.2",
+    "@faker-js/faker": "^9.3.0",
+    "@types/bcryptjs": "^2.4.6"
+  }
+}

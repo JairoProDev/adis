@@ -1,0 +1,1678 @@
+// 🚀 PUBLICADIS - PRISMA SCHEMA COMPLETO
+// Multi-tenant architecture con JSONB flexibility
+// Sistema de atribución y revenue sharing integrado
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions", "fullTextSearch", "fullTextIndex"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector"), pg_trgm, postgis(version: "3.3.2")]
+}
+
+// ============================================================================
+// 🏢 MULTI-TENANT & ATTRIBUTION SYSTEM
+// ============================================================================
+
+model Tenant {
+  id          String   @id @default(cuid())
+  slug        String   @unique // publicadis.com, partner1.publicadis.com
+  name        String
+  domain      String?  @unique // custom domain
+  logo        String?
+  status      TenantStatus @default(ACTIVE)
+
+  // Revenue sharing configuration
+  revenueSharePercentage Float @default(30.0) // Platform takes 30% by default
+
+  // Branding
+  primaryColor   String?
+  secondaryColor String?
+
+  // Configuration (JSONB for flexibility)
+  config      Json?
+
+  // Relationships
+  users       User[]
+  businesses  Business[]
+  listings    Listing[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+  @@index([status])
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+  INACTIVE
+}
+
+// ============================================================================
+// 👤 USERS & AUTHENTICATION
+// ============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  phone         String?   @unique
+  phoneVerified DateTime?
+
+  // Authentication
+  passwordHash  String?
+
+  // Profile
+  firstName     String?
+  lastName      String?
+  avatar        String?
+  bio           String?   @db.Text
+
+  // Attribution System - CRITICAL for revenue sharing
+  acquiredBy    String?   // User ID who referred this user
+  acquiredVia   String?   // 'page', 'listing', 'ad', 'referral'
+  acquiredFrom  String?   // business_id or listing_id
+
+  // Multi-tenant
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Roles and permissions
+  role          UserRole  @default(USER)
+  permissions   String[]  // Array of permission strings
+
+  // Business ownership
+  ownedBusinesses Business[] @relation("BusinessOwner")
+
+  // Activity
+  listings      Listing[]
+  reviews       Review[]
+  jobApplications JobApplication[]
+  conversations Conversation[] @relation("UserConversations")
+  messages      Message[]
+  subscriptions Subscription[]
+  transactions  Transaction[]
+
+  // ADIS AI
+  chatSessions  ChatSession[]
+
+  // Social
+  posts         Post[]
+  comments      Comment[]
+  likes         Like[]
+  following     Follow[]      @relation("UserFollowing")
+  followers     Follow[]      @relation("UserFollowers")
+
+  // Live Commerce
+  liveStreams   LiveStream[]
+  streamViews   LiveStreamViewer[]
+
+  // Analytics
+  pageViews     PageView[]
+  searchQueries SearchQuery[]
+
+  // Metadata
+  metadata      Json?
+  lastLoginAt   DateTime?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([email])
+  @@index([tenantId])
+  @@index([acquiredBy])
+  @@index([role])
+}
+
+enum UserRole {
+  SUPER_ADMIN   // Platform admin
+  TENANT_ADMIN  // Tenant admin (for MaaS partners)
+  USER          // Regular user
+  SELLER        // Business owner
+  MODERATOR     // Content moderator
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  type       TokenType @default(EMAIL_VERIFICATION)
+
+  @@unique([identifier, token])
+}
+
+enum TokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  PHONE_VERIFICATION
+  TWO_FACTOR
+}
+
+// ============================================================================
+// 🏪 PUBLICADIS PAGES (Linktree Killer - Trojan Horse Strategy)
+// ============================================================================
+
+model Business {
+  id            String   @id @default(cuid())
+  slug          String   @unique // business-name
+
+  // Basic Info
+  name          String
+  tagline       String?
+  description   String?  @db.Text
+  logo          String?
+  coverImage    String?
+
+  // Contact
+  email         String?
+  phone         String?
+  whatsapp      String?
+  website       String?
+
+  // Location
+  address       String?
+  city          String?
+  state         String?
+  country       String   @default("PE")
+  postalCode    String?
+  latitude      Float?
+  longitude     Float?
+
+  // Multi-tenant
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Ownership
+  ownerId       String
+  owner         User     @relation("BusinessOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // Status
+  status        BusinessStatus @default(ACTIVE)
+  verified      Boolean  @default(false)
+  featured      Boolean  @default(false)
+
+  // Plan & Billing
+  plan          BusinessPlan @default(FREE)
+  planExpiresAt DateTime?
+
+  // SEO
+  metaTitle     String?
+  metaDescription String?
+  keywords      String[]
+
+  // Analytics
+  viewCount     Int      @default(0)
+  clickCount    Int      @default(0)
+
+  // Theme & Customization (JSONB)
+  theme         Json?    // colors, fonts, layout preferences
+
+  // Social Links
+  socialLinks   BusinessSocial[]
+
+  // Hours
+  businessHours BusinessHours[]
+
+  // Listings (when they upgrade to Market)
+  listings      Listing[]
+
+  // Reviews
+  reviews       Review[] @relation("BusinessReviews")
+
+  // Knowledge Base (for ADIS AI)
+  knowledgeBase BusinessKnowledgeBase[]
+
+  // Subscriptions
+  subscriptions Subscription[]
+
+  // Analytics
+  pageViews     PageView[]
+
+  // Live Streams
+  liveStreams   LiveStream[]
+
+  // Metadata
+  metadata      Json?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([slug])
+  @@index([tenantId])
+  @@index([ownerId])
+  @@index([status])
+  @@index([plan])
+  @@index([city, country])
+}
+
+enum BusinessStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_REVIEW
+}
+
+enum BusinessPlan {
+  FREE          // Publicadis Pages only
+  PRO           // Pages + 10 listings + phone visible
+  BUSINESS      // Pages + 50 listings + featured + analytics
+  ENTERPRISE    // Custom
+}
+
+model BusinessSocial {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  platform   SocialPlatform
+  url        String
+  order      Int      @default(0)
+
+  createdAt  DateTime @default(now())
+
+  @@index([businessId])
+}
+
+enum SocialPlatform {
+  FACEBOOK
+  INSTAGRAM
+  TWITTER
+  LINKEDIN
+  YOUTUBE
+  TIKTOK
+  PINTEREST
+  WHATSAPP
+  TELEGRAM
+  CUSTOM
+}
+
+model BusinessHours {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  dayOfWeek  Int      // 0 = Sunday, 6 = Saturday
+  openTime   String   // "09:00"
+  closeTime  String   // "18:00"
+  closed     Boolean  @default(false)
+
+  @@index([businessId])
+}
+
+// ============================================================================
+// 📋 PUBLICADIS MARKET - CATEGORIES & LISTINGS
+// ============================================================================
+
+model Category {
+  id          String   @id @default(cuid())
+  slug        String   @unique // empleos, servicios, inmuebles, etc.
+  name        String
+  description String?  @db.Text
+  icon        String?
+
+  // Parent category (for subcategories)
+  parentId    String?
+  parent      Category?  @relation("SubCategories", fields: [parentId], references: [id])
+  children    Category[] @relation("SubCategories")
+
+  // Order
+  order       Int      @default(0)
+
+  // Status
+  active      Boolean  @default(true)
+
+  // Dynamic fields configuration (JSONB)
+  fieldsSchema Json?   // Defines what fields this category needs
+
+  // Relationships
+  listings    Listing[]
+  fields      CategoryField[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+  @@index([parentId])
+}
+
+model CategoryField {
+  id          String   @id @default(cuid())
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  name        String   // "salary_range", "property_type", etc.
+  label       String   // Human readable
+  type        FieldType
+
+  // Validation
+  required    Boolean  @default(false)
+  options     String[] // For SELECT, MULTI_SELECT
+
+  // UI
+  placeholder String?
+  helpText    String?
+  order       Int      @default(0)
+
+  @@index([categoryId])
+}
+
+enum FieldType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  SELECT
+  MULTI_SELECT
+  DATE
+  CURRENCY
+  LOCATION
+  RICH_TEXT
+}
+
+model Listing {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+
+  // Basic Info
+  title       String
+  description String   @db.Text
+
+  // Category
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+
+  // Business relationship
+  businessId  String?
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  // Multi-tenant
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Owner
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Pricing
+  price       Float?
+  priceType   PriceType @default(FIXED)
+  currency    String   @default("PEN")
+  negotiable  Boolean  @default(false)
+
+  // Location
+  location    String?
+  city        String?
+  state       String?
+  country     String   @default("PE")
+  latitude    Float?
+  longitude   Float?
+
+  // Status
+  status      ListingStatus @default(ACTIVE)
+  featured    Boolean  @default(false)
+
+  // CRITICAL: Category-specific data stored as JSONB
+  // This allows flexibility for all 8+ categories without schema changes
+  metadata    Json     // salary_range, bedrooms, car_make, event_date, etc.
+
+  // Images
+  images      ListingImage[]
+
+  // Reviews
+  reviews     Review[] @relation("ListingReviews")
+
+  // Applications (for Jobs)
+  applications JobApplication[]
+
+  // Bookings (for Services)
+  bookings    ServiceBooking[]
+
+  // Conversations
+  conversations Conversation[]
+
+  // Contact tracking
+  contactEvents ContactEvent[]
+
+  // Analytics
+  viewCount   Int      @default(0)
+  clickCount  Int      @default(0)
+  shareCount  Int      @default(0)
+
+  // SEO
+  metaTitle   String?
+  metaDescription String?
+
+  // Dates
+  expiresAt   DateTime?
+  publishedAt DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+  @@index([categoryId])
+  @@index([businessId])
+  @@index([tenantId])
+  @@index([userId])
+  @@index([status])
+  @@index([city, country])
+  @@index([createdAt])
+  @@index([price])
+}
+
+enum PriceType {
+  FIXED
+  HOURLY
+  DAILY
+  MONTHLY
+  NEGOTIABLE
+  FREE
+}
+
+enum ListingStatus {
+  DRAFT
+  ACTIVE
+  PENDING
+  SOLD
+  EXPIRED
+  INACTIVE
+  FLAGGED
+}
+
+model ListingImage {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  url       String
+  order     Int      @default(0)
+  caption   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([listingId])
+}
+
+// ============================================================================
+// 💼 EMPLEOS (Jobs) - Specific Models
+// ============================================================================
+
+model JobApplication {
+  id          String   @id @default(cuid())
+  listingId   String
+  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Application data
+  coverLetter String?  @db.Text
+  resumeUrl   String?
+
+  // Status
+  status      ApplicationStatus @default(PENDING)
+
+  // Notes (for employer)
+  notes       String?  @db.Text
+
+  // Metadata
+  metadata    Json?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([listingId])
+  @@index([userId])
+  @@index([status])
+  @@unique([listingId, userId])
+}
+
+enum ApplicationStatus {
+  PENDING
+  REVIEWED
+  INTERVIEW
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+// ============================================================================
+// 🛠️ SERVICIOS (Services) - Booking System
+// ============================================================================
+
+model ServiceBooking {
+  id          String   @id @default(cuid())
+  listingId   String
+  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Booking details
+  startTime   DateTime
+  endTime     DateTime
+
+  // Pricing
+  totalPrice  Float
+  currency    String   @default("PEN")
+
+  // Status
+  status      BookingStatus @default(PENDING)
+
+  // Communication
+  notes       String?  @db.Text
+
+  // Payment
+  transactionId String?
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+
+  // Metadata
+  metadata    Json?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([listingId])
+  @@index([userId])
+  @@index([status])
+  @@index([startTime])
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+// ============================================================================
+// ⭐ REVIEWS & TRUST SYSTEM
+// ============================================================================
+
+model Review {
+  id          String   @id @default(cuid())
+
+  // Can review either a Business or a Listing
+  businessId  String?
+  business    Business? @relation("BusinessReviews", fields: [businessId], references: [id], onDelete: Cascade)
+
+  listingId   String?
+  listing     Listing?  @relation("ListingReviews", fields: [listingId], references: [id], onDelete: Cascade)
+
+  // Reviewer
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Review content
+  rating      Int      // 1-5
+  title       String?
+  comment     String   @db.Text
+
+  // Verification
+  verified    Boolean  @default(false) // Verified purchase/booking
+
+  // Images
+  images      String[]
+
+  // Response from business
+  response    ReviewResponse?
+
+  // Status
+  status      ReviewStatus @default(PUBLISHED)
+
+  // Helpful votes
+  helpfulCount Int     @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([listingId])
+  @@index([userId])
+  @@index([rating])
+  @@index([status])
+}
+
+enum ReviewStatus {
+  PENDING
+  PUBLISHED
+  FLAGGED
+  REMOVED
+}
+
+model ReviewResponse {
+  id        String   @id @default(cuid())
+  reviewId  String   @unique
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  comment   String   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Verification {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+
+  // KYC Status
+  idVerified      Boolean @default(false)
+  phoneVerified   Boolean @default(false)
+  emailVerified   Boolean @default(false)
+  addressVerified Boolean @default(false)
+
+  // Documents
+  documentType    String?
+  documentNumber  String?
+  documentUrl     String?
+
+  // Verification provider
+  provider        String? // "manual", "sunat", "reniec", etc.
+
+  // Status
+  status          VerificationStatus @default(PENDING)
+
+  // Metadata
+  metadata        Json?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+// ============================================================================
+// 💬 COMMUNICATION SYSTEM
+// ============================================================================
+
+model Conversation {
+  id          String   @id @default(cuid())
+
+  // Participants
+  participants User[]  @relation("UserConversations")
+
+  // Related to listing
+  listingId   String?
+  listing     Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+
+  // Messages
+  messages    Message[]
+
+  // Status
+  status      ConversationStatus @default(ACTIVE)
+
+  // Last activity
+  lastMessageAt DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([listingId])
+  @@index([status])
+}
+
+enum ConversationStatus {
+  ACTIVE
+  ARCHIVED
+  BLOCKED
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  content        String       @db.Text
+
+  // Attachments
+  attachments    String[]
+
+  // Read status
+  read           Boolean      @default(false)
+  readAt         DateTime?
+
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+model ContactEvent {
+  id        String   @id @default(cuid())
+
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  userId    String?
+
+  // Event type
+  type      ContactEventType
+
+  // Metadata (phone revealed, WhatsApp clicked, etc.)
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([listingId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+enum ContactEventType {
+  PHONE_REVEALED
+  PHONE_CALLED
+  WHATSAPP_CLICKED
+  EMAIL_CLICKED
+  MESSAGE_SENT
+  FORM_SUBMITTED
+}
+
+// ============================================================================
+// 💰 MONETIZATION & BILLING
+// ============================================================================
+
+model SubscriptionPlan {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+
+  // Pricing
+  price       Float
+  currency    String   @default("PEN")
+  interval    BillingInterval
+
+  // Features (JSONB)
+  features    Json
+
+  // Limits
+  listingsLimit Int?
+  featuredListingsLimit Int?
+
+  // Status
+  active      Boolean  @default(true)
+
+  // Relationships
+  subscriptions Subscription[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+}
+
+enum BillingInterval {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  LIFETIME
+}
+
+model Subscription {
+  id          String   @id @default(cuid())
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  businessId  String?
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  planId      String
+  plan        SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  // Status
+  status      SubscriptionStatus @default(ACTIVE)
+
+  // Billing
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAt           DateTime?
+  canceledAt         DateTime?
+
+  // Payment provider
+  stripeSubscriptionId String? @unique
+
+  // Metadata
+  metadata    Json?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([businessId])
+  @@index([status])
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  TRIALING
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Amount
+  amount      Float
+  currency    String   @default("PEN")
+
+  // Type
+  type        TransactionType
+
+  // Payment provider
+  provider    PaymentProvider
+  providerTransactionId String?
+
+  // Status
+  status      TransactionStatus @default(PENDING)
+
+  // Revenue sharing (CRITICAL)
+  revenueShares RevenueShare[]
+
+  // Bookings
+  bookings    ServiceBooking[]
+
+  // Metadata
+  metadata    Json?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum TransactionType {
+  SUBSCRIPTION
+  LISTING_FEE
+  BOOKING
+  AD_SPEND
+  ESCROW
+  PAYOUT
+  REFUND
+}
+
+enum PaymentProvider {
+  STRIPE
+  MERCADO_PAGO
+  NIUBIZ
+  CULQI
+  PAYPAL
+  MANUAL
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+// CRITICAL: Automatic Revenue Sharing Model
+model RevenueShare {
+  id            String      @id @default(cuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  // Recipient (can be platform, tenant, or referrer)
+  recipientType RecipientType
+  recipientId   String      // tenantId or userId
+
+  // Amount
+  amount        Float
+  percentage    Float
+
+  // Status
+  status        RevenueShareStatus @default(PENDING)
+  paidAt        DateTime?
+
+  createdAt     DateTime @default(now())
+
+  @@index([transactionId])
+  @@index([recipientId])
+  @@index([status])
+}
+
+enum RecipientType {
+  PLATFORM      // Publicadis main platform
+  TENANT        // MaaS partner
+  REFERRER      // User who acquired customer
+  SELLER        // Listing/business owner
+}
+
+enum RevenueShareStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+// ============================================================================
+// 📢 PUBLICADIS ADS - AI-Powered Advertising
+// ============================================================================
+
+model AdCampaign {
+  id          String   @id @default(cuid())
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  objective   AdObjective
+
+  // Targeting (JSONB)
+  targeting   Json     // location, demographics, interests, etc.
+
+  // Budget
+  budget      Float
+  budgetType  BudgetType
+
+  // Schedule
+  startDate   DateTime
+  endDate     DateTime?
+
+  // Status
+  status      AdCampaignStatus @default(DRAFT)
+
+  // Creatives
+  creatives   AdCreative[]
+
+  // Performance
+  impressions AdImpression[]
+  clicks      AdClick[]
+  conversions AdConversion[]
+
+  // Metadata
+  metadata    Json?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum AdObjective {
+  AWARENESS
+  TRAFFIC
+  ENGAGEMENT
+  LEADS
+  CONVERSIONS
+}
+
+enum BudgetType {
+  DAILY
+  LIFETIME
+}
+
+enum AdCampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+model AdCreative {
+  id         String     @id @default(cuid())
+  campaignId String
+  campaign   AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  name       String
+  format     AdFormat
+
+  // Content
+  headline   String?
+  body       String?    @db.Text
+  imageUrl   String?
+  videoUrl   String?
+  ctaText    String?
+  ctaUrl     String?
+
+  // Status
+  active     Boolean    @default(true)
+
+  createdAt  DateTime   @default(now())
+
+  @@index([campaignId])
+}
+
+enum AdFormat {
+  IMAGE
+  VIDEO
+  CAROUSEL
+  TEXT
+  NATIVE
+}
+
+model AdImpression {
+  id         String     @id @default(cuid())
+  campaignId String
+  campaign   AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  userId     String?
+
+  // Context
+  page       String?
+  listingId  String?
+
+  createdAt  DateTime   @default(now())
+
+  @@index([campaignId])
+  @@index([createdAt])
+}
+
+model AdClick {
+  id         String     @id @default(cuid())
+  campaignId String
+  campaign   AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  userId     String?
+
+  // Context
+  page       String?
+
+  createdAt  DateTime   @default(now())
+
+  @@index([campaignId])
+  @@index([createdAt])
+}
+
+model AdConversion {
+  id         String     @id @default(cuid())
+  campaignId String
+  campaign   AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  userId     String?
+
+  // Conversion data
+  type       String     // 'signup', 'purchase', 'booking', etc.
+  value      Float?
+
+  createdAt  DateTime   @default(now())
+
+  @@index([campaignId])
+  @@index([type])
+}
+
+// ============================================================================
+// 🤖 ADIS AI - Conversational Assistant
+// ============================================================================
+
+model ChatSession {
+  id          String   @id @default(cuid())
+
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Context
+  businessId  String?
+  sessionType ChatSessionType @default(GENERAL)
+
+  // Messages
+  messages    ChatMessage[]
+
+  // Status
+  status      ChatStatus @default(ACTIVE)
+
+  // Metadata
+  metadata    Json?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([businessId])
+}
+
+enum ChatSessionType {
+  GENERAL       // General search/help
+  BUSINESS      // Specific business inquiry
+  SUPPORT       // Customer support
+}
+
+enum ChatStatus {
+  ACTIVE
+  RESOLVED
+  ARCHIVED
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  role      MessageRole
+  content   String      @db.Text
+
+  // AI metadata
+  model     String?     // Which LLM model was used
+  tokens    Int?        // Token count
+
+  // Context used (for RAG)
+  sources   Json?       // References to knowledge base entries
+
+  createdAt DateTime    @default(now())
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model BusinessKnowledgeBase {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  // Content
+  question   String   @db.Text
+  answer     String   @db.Text
+
+  // Category
+  category   String?
+
+  // Vector embedding for semantic search
+  embedding  Unsupported("vector(1536)")?
+
+  // Auto-generated or manual
+  source     String   @default("manual") // 'manual', 'auto', 'imported'
+
+  // Status
+  active     Boolean  @default(true)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([businessId])
+}
+
+// ============================================================================
+// 👥 SOCIAL FEATURES (Red Social)
+// ============================================================================
+
+model Post {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  content   String   @db.Text
+  images    String[]
+  videoUrl  String?
+
+  // Type
+  type      PostType @default(TEXT)
+
+  // Engagement
+  comments  Comment[]
+  likes     Like[]
+
+  // Visibility
+  visibility PostVisibility @default(PUBLIC)
+
+  // Stats
+  viewCount    Int @default(0)
+  shareCount   Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+enum PostType {
+  TEXT
+  IMAGE
+  VIDEO
+  POLL
+  LISTING_SHARE
+}
+
+enum PostVisibility {
+  PUBLIC
+  FOLLOWERS
+  PRIVATE
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  content   String   @db.Text
+
+  // Nested comments
+  parentId  String?
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+  @@index([userId])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+  @@index([postId])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+
+  followingId String
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+// ============================================================================
+// 🔒 ESCROW & TRUST
+// ============================================================================
+
+model EscrowTransaction {
+  id          String   @id @default(cuid())
+
+  buyerId     String
+  sellerId    String
+  listingId   String?
+
+  // Amount
+  amount      Float
+  currency    String   @default("PEN")
+
+  // Status
+  status      EscrowStatus @default(PENDING)
+
+  // Timeline
+  releasedAt  DateTime?
+  disputedAt  DateTime?
+  resolvedAt  DateTime?
+
+  // Metadata
+  metadata    Json?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([status])
+}
+
+enum EscrowStatus {
+  PENDING
+  FUNDED
+  RELEASED
+  DISPUTED
+  RESOLVED
+  REFUNDED
+}
+
+// ============================================================================
+// 🚚 LOGISTICS & SHIPPING
+// ============================================================================
+
+model Shipment {
+  id          String   @id @default(cuid())
+
+  listingId   String
+  buyerId     String
+  sellerId    String
+
+  // Carrier
+  carrier     String?  // 'olva', 'shalom', 'serpost', etc.
+  trackingNumber String?
+
+  // Addresses
+  originAddress      Json
+  destinationAddress Json
+
+  // Status
+  status      ShipmentStatus @default(PENDING)
+
+  // Tracking
+  tracking    ShipmentTracking[]
+
+  // Metadata
+  metadata    Json?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([trackingNumber])
+  @@index([status])
+}
+
+enum ShipmentStatus {
+  PENDING
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  RETURNED
+}
+
+model ShipmentTracking {
+  id         String   @id @default(cuid())
+  shipmentId String
+  shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  status     String
+  location   String?
+  notes      String?  @db.Text
+
+  timestamp  DateTime @default(now())
+
+  @@index([shipmentId])
+}
+
+// ============================================================================
+// 📺 LIVE COMMERCE
+// ============================================================================
+
+model LiveStream {
+  id          String   @id @default(cuid())
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  businessId  String?
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  title       String
+  description String?  @db.Text
+  thumbnailUrl String?
+
+  // Stream details
+  streamKey   String   @unique
+  streamUrl   String?
+  playbackUrl String?
+
+  // Status
+  status      LiveStreamStatus @default(SCHEDULED)
+
+  // Schedule
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  endedAt     DateTime?
+
+  // Products featured
+  products    LiveStreamProduct[]
+
+  // Viewers
+  viewers     LiveStreamViewer[]
+
+  // Stats
+  peakViewers Int      @default(0)
+  totalViews  Int      @default(0)
+
+  // Metadata
+  metadata    Json?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+enum LiveStreamStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+  CANCELLED
+}
+
+model LiveStreamProduct {
+  id           String     @id @default(cuid())
+  liveStreamId String
+  liveStream   LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+
+  listingId    String
+
+  // Display
+  order        Int        @default(0)
+  featured     Boolean    @default(false)
+
+  // Special pricing
+  livePrice    Float?
+  discount     Float?
+
+  createdAt    DateTime   @default(now())
+
+  @@index([liveStreamId])
+}
+
+model LiveStreamViewer {
+  id           String     @id @default(cuid())
+  liveStreamId String
+  liveStream   LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+
+  userId       String?
+  user         User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  joinedAt     DateTime   @default(now())
+  leftAt       DateTime?
+
+  @@index([liveStreamId])
+  @@index([userId])
+}
+
+// ============================================================================
+// 📊 ANALYTICS
+// ============================================================================
+
+model PageView {
+  id         String   @id @default(cuid())
+
+  // What was viewed
+  businessId String?
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  // Who viewed
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Context
+  path       String
+  referrer   String?
+  userAgent  String?
+
+  // Location
+  country    String?
+  city       String?
+
+  // Metadata
+  metadata   Json?
+
+  createdAt  DateTime @default(now())
+
+  @@index([businessId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model SearchQuery {
+  id        String   @id @default(cuid())
+
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  query     String
+  filters   Json?
+
+  // Results
+  resultCount Int    @default(0)
+
+  // Context
+  source    String?  // 'search_bar', 'voice', 'adis_ai'
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([query])
+  @@index([createdAt])
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+
+  userId    String?
+
+  // Event
+  eventName String
+  eventData Json?
+
+  // Context
+  page      String?
+
+  createdAt DateTime @default(now())
+
+  @@index([eventName])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// 📁 MEDIA MANAGEMENT
+// ============================================================================
+
+model Media {
+  id        String   @id @default(cuid())
+
+  userId    String
+
+  // File info
+  filename  String
+  mimeType  String
+  size      Int
+  url       String
+
+  // Image specific
+  width     Int?
+  height    Int?
+
+  // Storage
+  provider  String   @default("cloudflare") // 'cloudflare', 's3', 'local'
+  key       String   // Storage key/path
+
+  // Status
+  status    MediaStatus @default(UPLOADED)
+
+  // Metadata
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum MediaStatus {
+  UPLOADED
+  PROCESSING
+  READY
+  FAILED
+}
+
+// ============================================================================
+// 🔔 NOTIFICATIONS
+// ============================================================================
+
+model Notification {
+  id        String   @id @default(cuid())
+
+  userId    String
+
+  // Content
+  type      NotificationType
+  title     String
+  message   String   @db.Text
+
+  // Link
+  actionUrl String?
+
+  // Status
+  read      Boolean  @default(false)
+  readAt    DateTime?
+
+  // Metadata
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  MESSAGE
+  REVIEW
+  BOOKING
+  LISTING
+  SYSTEM
+  MARKETING
+}

@@ -1,0 +1,6 @@
+{
+  "extends": [
+    "@publicadis/eslint-config",
+    "next/core-web-vitals"
+  ]
+}

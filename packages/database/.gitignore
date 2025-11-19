@@ -1,0 +1,10 @@
+.env
+.env.local
+.env.*.local
+
+# Prisma
+prisma/migrations/
+node_modules/
+
+# Build
+dist/
