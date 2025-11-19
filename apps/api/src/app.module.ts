@@ -16,6 +16,7 @@ import { EmailModule } from './modules/email/email.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { AIModule } from './modules/ai/ai.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 // Services
 import { PrismaService } from './common/services/prisma.service';
@@ -64,6 +65,7 @@ import { PrismaService } from './common/services/prisma.service';
     PaymentsModule,
     ChatModule,
     AIModule,
+    AnalyticsModule,
   ],
   providers: [PrismaService],
   exports: [PrismaService],

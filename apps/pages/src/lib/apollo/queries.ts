@@ -341,3 +341,76 @@ export const GET_PAGE_CONFIG = gql`
     }
   }
 `;
+
+// Analytics
+export const TRACK_PAGE_VIEW = gql`
+  mutation TrackPageView($input: TrackPageViewInput!) {
+    trackPageView(input: $input)
+  }
+`;
+
+export const GET_ANALYTICS_SUMMARY = gql`
+  query BusinessAnalyticsSummary($input: AnalyticsQueryInput!) {
+    businessAnalyticsSummary(input: $input) {
+      totalViews
+      totalClicks
+      uniqueVisitors
+      conversionRate
+      avgSessionDuration
+      bounceRate
+    }
+  }
+`;
+
+export const GET_TIME_SERIES_DATA = gql`
+  query BusinessTimeSeriesData($input: AnalyticsQueryInput!) {
+    businessTimeSeriesData(input: $input) {
+      date
+      views
+      clicks
+      visitors
+    }
+  }
+`;
+
+export const GET_GEOGRAPHIC_DATA = gql`
+  query BusinessGeographicData($input: AnalyticsQueryInput!) {
+    businessGeographicData(input: $input) {
+      country
+      city
+      count
+    }
+  }
+`;
+
+export const GET_DEVICE_DATA = gql`
+  query BusinessDeviceData($input: AnalyticsQueryInput!) {
+    businessDeviceData(input: $input) {
+      device
+      browser
+      count
+    }
+  }
+`;
+
+export const GET_REFERRER_DATA = gql`
+  query BusinessReferrerData($input: AnalyticsQueryInput!) {
+    businessReferrerData(input: $input) {
+      referrer
+      count
+    }
+  }
+`;
+
+export const GET_TOP_LISTINGS = gql`
+  query BusinessTopListings($input: AnalyticsQueryInput!) {
+    businessTopListings(input: $input) {
+      id
+      title
+      type
+      views
+      clicks
+      conversionRate
+    }
+  }
+`;
