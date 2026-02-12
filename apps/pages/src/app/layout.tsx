@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from 'sonner';
+import { GraphQLProvider } from '@/lib/apollo/provider';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -53,7 +54,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <GraphQLProvider>
+             {children}
+          </GraphQLProvider>
           <Toaster position="top-center" richColors />
         </ThemeProvider>
       </body>

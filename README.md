@@ -206,12 +206,42 @@ El proyecto usa **npm workspaces** con **Turbo** para gestión eficiente del mon
 
 ### Prerequisitos
 
-- Node.js >= 20.0.0
-- npm >= 10.0.0
-- PostgreSQL 15+
-- Redis 7+
+- **Node.js** >= 20.0.0
+- **npm** >= 10.0.0
+- **Docker** & Docker Compose (recomendado para PostgreSQL y Redis)
+- **Git**
 
-### Setup Inicial
+### Setup Rápido (Recomendado)
+
+Usa nuestro script de setup automatizado:
+
+**Linux/macOS:**
+```bash
+git clone https://github.com/JairoProDev/adis.git
+cd adis
+chmod +x scripts/setup.sh
+./scripts/setup.sh
+```
+
+**Windows (PowerShell):**
+```powershell
+git clone https://github.com/JairoProDev/adis.git
+cd adis
+.\scripts\setup.ps1
+```
+
+El script automáticamente:
+- ✅ Verifica versiones de Node.js y npm
+- ✅ Instala todas las dependencias
+- ✅ Inicia PostgreSQL y Redis con Docker
+- ✅ Genera el Prisma Client
+- ✅ Crea archivos `.env.local` con valores por defecto
+- ✅ Ejecuta migraciones de base de datos
+- ✅ Opcionalmente seedea la base de datos
+
+### Setup Manual
+
+Si prefieres hacerlo manualmente:
 
 1. **Clonar el repositorio:**
 
@@ -226,68 +256,163 @@ cd adis
 npm install
 ```
 
-3. **Configurar variables de entorno:**
+3. **Iniciar servicios con Docker:**
 
 ```bash
-# Copiar ejemplo
-cp .env.example .env.local
+# Inicia PostgreSQL y Redis
+docker-compose up -d
 
-# Editar con tus valores
-# DATABASE_URL, REDIS_URL, etc.
+# Verifica que estén corriendo
+docker ps
 ```
 
-4. **Setup de base de datos:**
+**Alternativa sin Docker:** Necesitarás instalar PostgreSQL 15+ con extensiones (pgvector, pg_trgm, PostGIS) y Redis 7+ manualmente.
+
+4. **Configurar variables de entorno:**
+
+Crea un archivo `.env.local` en la raíz del proyecto:
+
+```bash
+# .env.local
+NODE_ENV=development
+
+# Database (con Docker)
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/publicadis?schema=public
+
+# Redis (con Docker)
+REDIS_URL=redis://localhost:6379
+
+# API
+PORT=4000
+API_URL=http://localhost:4000
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+
+# JWT (genera uno seguro: openssl rand -base64 32)
+JWT_SECRET=tu-secret-key-aqui
+JWT_EXPIRES_IN=7d
+
+# Servicios opcionales (puedes agregarlos después)
+RESEND_API_KEY=
+GROQ_API_KEY=
+STRIPE_SECRET_KEY=
+CLOUDFLARE_ACCOUNT_ID=
+```
+
+Crea también `.env.local` en cada app frontend:
+
+**apps/marketplace/.env.local:**
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:4000/graphql
+```
+
+**apps/pages/.env.local:**
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:4000/graphql
+```
+
+5. **Setup de base de datos:**
 
 ```bash
 # Generar Prisma client
 npm run db:generate
 
-# Correr migraciones
-npm run db:migrate
+# Aplicar migraciones (crea las tablas)
+npm run db:push
 
-# Seed data (opcional)
+# Seed data con datos de prueba (opcional)
 npm run db:seed
 ```
 
-5. **Iniciar en desarrollo:**
+6. **Iniciar en desarrollo:**
 
 ```bash
-# Todos los apps en paralelo
+# Todos los apps en paralelo (recomendado)
 npm run dev
 
-# O individualmente:
-npm run dev --filter=web
-npm run dev --filter=api
+# Esto iniciará:
+# - API en http://localhost:4000
+# - Pages App en http://localhost:3000
+# - Marketplace App en http://localhost:3001
 ```
+
+**O iniciar individualmente:**
+
+```bash
+# Solo API
+npm run dev --filter=@publicadis/api
+
+# Solo Pages App
+npm run dev --filter=@publicadis/pages
+
+# Solo Marketplace App
+npm run dev --filter=@publicadis/marketplace
+```
+
+### Verificar que todo funciona
+
+1. **API:** Abre http://localhost:4000/graphql (GraphQL Playground)
+2. **Pages App:** http://localhost:3000
+3. **Marketplace App:** http://localhost:3001
+4. **Prisma Studio:** `npm run db:studio` (abre en http://localhost:5555)
+
+### Credenciales de Prueba (si ejecutaste seed)
+
+- **Admin:** `admin@publicadis.com` / `admin123`
+- **Seller 1:** `seller1@test.com` / `password123`
+- **Seller 2:** `seller2@test.com` / `password123`
+- **Buyer:** `buyer@test.com` / `password123`
 
 ### Scripts Disponibles
 
 ```bash
 # Desarrollo
-npm run dev              # Todos los apps
-npm run dev --filter=web # Solo web
+npm run dev                          # Todos los apps en paralelo
+npm run dev --filter=@publicadis/api # Solo API
+npm run dev --filter=@publicadis/pages # Solo Pages App
+npm run dev --filter=@publicadis/marketplace # Solo Marketplace
 
 # Build
-npm run build            # Build all
-npm run build --filter=api
+npm run build                        # Build all apps
+npm run build --filter=@publicadis/api
 
 # Testing
-npm run test             # Tests de todos
-npm run test:watch       # Watch mode
+npm run test                         # Tests de todos
+npm run test:watch                   # Watch mode
 
 # Linting
-npm run lint             # Lint all
-npm run format           # Prettier format
+npm run lint                         # Lint all
+npm run format                       # Prettier format
+npm run typecheck                    # TypeScript type checking
 
 # Database
-npm run db:generate      # Generar Prisma client
-npm run db:migrate       # Correr migraciones
-npm run db:seed          # Seed data
-npm run db:studio        # Abrir Prisma Studio
+npm run db:generate                  # Generar Prisma client
+npm run db:push                      # Aplicar schema (desarrollo)
+npm run db:migrate                   # Crear migración
+npm run db:migrate:prod              # Aplicar migraciones (producción)
+npm run db:seed                      # Seed data con datos de prueba
+npm run db:studio                    # Abrir Prisma Studio (http://localhost:5555)
+npm run db:reset                     # Resetear base de datos (⚠️ borra todo)
+
+# Docker
+docker-compose up -d                 # Iniciar PostgreSQL y Redis
+docker-compose down                  # Detener servicios
+docker-compose logs -f               # Ver logs
 
 # Clean
-npm run clean            # Limpiar build artifacts
+npm run clean                        # Limpiar build artifacts y node_modules
 ```
+
+### Servicios y Puertos
+
+| Servicio | Puerto | URL |
+|----------|--------|-----|
+| API (NestJS) | 4000 | http://localhost:4000 |
+| GraphQL Playground | 4000 | http://localhost:4000/graphql |
+| Pages App (Next.js) | 3000 | http://localhost:3000 |
+| Marketplace App (Next.js) | 3001 | http://localhost:3001 |
+| PostgreSQL | 5432 | localhost:5432 |
+| Redis | 6379 | localhost:6379 |
+| Prisma Studio | 5555 | http://localhost:5555 |
 
 ---
 

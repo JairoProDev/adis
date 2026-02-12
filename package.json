@@ -12,13 +12,13 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "test": "turbo run test",
-    "lint": "turbo run lint",
+    "dev": "./node_modules/.bin/turbo run dev",
+    "build": "./node_modules/.bin/turbo run build",
+    "test": "./node_modules/.bin/turbo run test",
+    "lint": "./node_modules/.bin/turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
-    "clean": "turbo run clean && rm -rf node_modules",
-    "typecheck": "turbo run typecheck",
+    "clean": "./node_modules/.bin/turbo run clean && rm -rf node_modules",
+    "typecheck": "./node_modules/.bin/turbo run typecheck",
     "db:generate": "npm run db:generate --workspace=@publicadis/database",
     "db:push": "npm run db:push --workspace=@publicadis/database",
     "db:migrate": "npm run db:migrate --workspace=@publicadis/database",
@@ -28,9 +28,10 @@
   },
   "devDependencies": {
     "@turbo/gen": "^2.3.3",
-    "turbo": "^2.3.3",
+    "eslint": "^8.57.0",
     "prettier": "^3.4.2",
-    "eslint": "^9.18.0",
+    "prisma": "^5.22.0",
+    "turbo": "^2.3.3",
     "typescript": "^5.7.2"
   },
   "packageManager": "npm@10.9.4",

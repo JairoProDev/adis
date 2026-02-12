@@ -98,6 +98,12 @@ model User {
   messages      Message[]
   subscriptions Subscription[]
   transactions  Transaction[]
+  
+  // Bookings
+  bookings      ServiceBooking[]
+
+  // Ads
+  adCampaigns   AdCampaign[]
 
   // ADIS AI
   chatSessions  ChatSession[]
